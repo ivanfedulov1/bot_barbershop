@@ -118,8 +118,9 @@ def send_services(message):
         print(e)
 
 
+
 # Обработчик для кнопок с названием услуги
-@bot.message_handler(func=lambda message: is_service(message.text))
+@bot.message_handler(func=lambda message: message.text in ['Стрижка', 'Бритье', 'Окрашивание', 'Укладка', 'Стрижка бороды'])
 def send_service_info(message):
     try:
         selected_service = message.text
@@ -144,18 +145,6 @@ def send_service_info(message):
         bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
         print(e)
 
-# Функция для проверки, является ли текст сообщения названием услуги
-def is_service(text):
-    try:
-        # Выполнение SQL-запроса для получения списка доступных услуг
-        cursor.execute("SELECT name FROM Services")
-        available_services = cursor.fetchall()  # Получаем список названий услуг
-
-        # Проверяем, есть ли введенный текст в списке названий услуг
-        return text in [service[0] for service in available_services]
-    except Exception as e:
-        print("Ошибка при проверке услуги:", e)
-        return False
 
 # Обработчик для кнопки "Назад"
 @bot.message_handler(func=lambda message: message.text == 'Назад')
