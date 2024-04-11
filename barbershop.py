@@ -26,31 +26,32 @@ bot = telebot.TeleBot(TOKEN)
 @bot.message_handler(commands=['start'])
 def start_message(message):
     bot.send_message(message.chat.id, "Привет! Я бот парикмахерской Fedulov's Barbershop. Хочешь сделаем из тебя брутального мужчину ;) ? Тогда ответь, как тебя зовут?")
-    bot.register_next_step_handler(message, save_name)
+    user_id = message.from_user.id
+    bot.register_next_step_handler(message, save_name, user_id)
 
 
 # Функция для сохранения имени пользователя
-def save_name(message):
+def save_name(message, user_id):
     name = message.text.strip()
 
     # Проверка валидности имени пользователя
     if not name.isalpha():
         bot.send_message(message.chat.id, "Имя не должно содержать цифр. Попробуйте еще раз.")
-        bot.register_next_step_handler(message, save_name)
+        bot.register_next_step_handler(message, save_name, user_id)
         return
 
     try:
         # Добавляем имя пользователя в созданную запись
-        cursor.execute("INSERT INTO Users (username) VALUES (%s) RETURNING user_id", (name,))
-        user_id = cursor.fetchone()[0]
+        cursor.execute("INSERT INTO Users (user_id, username) VALUES (%s, %s)", (user_id, name))
         conn.commit()
         bot.send_message(message.chat.id, "Имя успешно сохранено! Теперь введите свой номер телефона:")
         # Регистрируем следующий шаг для сохранения номера телефона
         bot.register_next_step_handler(message, save_phone, user_id)
     except Exception as e:
         bot.send_message(message.chat.id,
-                         "Произошла ошибка при сохранении имени. Попробуйте еще раз или обратитесь к администратору.")
+                         "Произошла ошибкa: У тебя уже есть учетная запись!")
         print(e)
+        save_name(message, user_id)
 
 
 
@@ -70,13 +71,12 @@ def save_phone(message, user_id):
         return
 
     try:
-
         # Обновляем номер телефона пользователя в записи с указанным user_id
         cursor.execute("UPDATE Users SET phone_number = %s WHERE user_id = %s", (phone_number, user_id))
         conn.commit()
         bot.send_message(message.chat.id, "Номер телефона успешно сохранен! Супер, теперь вы можете выбрать услугу.")
-
         keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+
     # Добавляем кнопки в меню
         services_button = types.KeyboardButton("Услуги")
         barbers_button = types.KeyboardButton("Барберы")
