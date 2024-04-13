@@ -43,6 +43,7 @@ def save_name(message, user_id):
     try:
         # Добавляем имя пользователя в созданную запись
         cursor.execute("INSERT INTO Users (user_id, username) VALUES (%s, %s)", (user_id, name))
+        cursor.execute("INSERT INTO appointments (user_id) VALUES (%s)", (user_id,))
         conn.commit()
         bot.send_message(message.chat.id, "Имя успешно сохранено! Теперь введите свой номер телефона:")
         # Регистрируем следующий шаг для сохранения номера телефона
@@ -106,24 +107,21 @@ def send_services(message):
         keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
 
         # Добавление кнопок для каждой услуги
-        britva_button = types.KeyboardButton("Бритье")
-        okrashivanie_button = types.KeyboardButton("Окрашивание")
-        ukladka_button = types.KeyboardButton("Укладка")
-        boroda_button = types.KeyboardButton("Стрижка бороды")
-        strizhka_button = types.KeyboardButton("Стрижка")
-        keyboard.add(britva_button, okrashivanie_button, ukladka_button, boroda_button, strizhka_button)
+        for service in services:
+            service_name = service[0]  # Получаем название услуги из кортежа
+            keyboard.add(types.KeyboardButton(service_name))
 
         # Отправка сообщения с клавиатурой пользователю
         bot.send_message(message.chat.id, "Выберите услугу:", reply_markup=keyboard)
+        bot.register_next_step_handler(message, send_service_info)
 
     except Exception as e:
         bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
         print(e)
 
 
-
 # Обработчик для кнопок с названием услуги
-@bot.message_handler(func=lambda message: message.text in ['Стрижка', 'Бритье', 'Окрашивание', 'Укладка', 'Стрижка бороды'])
+
 def send_service_info(message):
     try:
         selected_service = message.text
@@ -158,6 +156,52 @@ def back_to_main_menu(message):
         keyboard.add(types.KeyboardButton("Услуги"), types.KeyboardButton("Барберы"), types.KeyboardButton("Мои заказы"))
         # Отправляем сообщение с основным меню пользователю
         bot.send_message(message.chat.id, "Выберите действие:", reply_markup=keyboard)
+    except Exception as e:
+        bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
+        print(e)
+
+# Обработчик для кнопки "Барберы"
+@bot.message_handler(func=lambda message: message.text == 'Выбрать')
+def send_barbers(message):
+    try:
+        # Выполнение SQL-запроса для извлечения имен барберов из таблицы "Barbers"
+        cursor.execute("SELECT name FROM Barbers")
+        barbers = cursor.fetchall()
+
+        # Создание клавиатуры для выбора барбера
+        keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+
+        # Добавление кнопок для каждого барбера
+        for barber in barbers:
+            barber_name = barber[0]  # Получаем имя барбера из кортежа
+            keyboard.add(types.KeyboardButton(barber_name))
+
+        # Отправка сообщения с клавиатурой пользователю
+        bot.send_message(message.chat.id, "Выбери барбера:", reply_markup=keyboard)
+        # Регистрация следующего шага для обработки выбора времени с передачей переменной barbers
+        bot.register_next_step_handler(message, select_time)
+
+    except Exception as e:
+        bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
+        print(e)
+
+
+# Обработчик для выбора времени
+def select_time(message):
+    try:
+        selected_barber = message.text
+
+        # Создаем клавиатуру для выбора времени
+        keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+
+        # Добавляем кнопки для выбора времени
+        keyboard.add(types.KeyboardButton("10:00"), types.KeyboardButton("11:00"))
+        keyboard.add(types.KeyboardButton("12:00"), types.KeyboardButton("14:00"))
+        keyboard.add(types.KeyboardButton("15:00"), types.KeyboardButton("16:00"))
+
+        # Отправляем сообщение с запросом времени
+        bot.send_message(message.chat.id, f"Выберите время для барбера {selected_barber}:", reply_markup=keyboard)
+
     except Exception as e:
         bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
         print(e)
