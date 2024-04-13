@@ -106,9 +106,12 @@ def send_services(message):
         keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
 
         # Добавление кнопок для каждой услуги
-        for service in services:
-            service_name = service[0]  # Получаем название услуги из кортежа
-            keyboard.add(types.KeyboardButton(service_name))
+        britva_button = types.KeyboardButton("Бритье")
+        okrashivanie_button = types.KeyboardButton("Окрашивание")
+        ukladka_button = types.KeyboardButton("Укладка")
+        boroda_button = types.KeyboardButton("Стрижка бороды")
+        strizhka_button = types.KeyboardButton("Стрижка")
+        keyboard.add(britva_button, okrashivanie_button, ukladka_button, boroda_button, strizhka_button)
 
         # Отправка сообщения с клавиатурой пользователю
         bot.send_message(message.chat.id, "Выберите услугу:", reply_markup=keyboard)
