@@ -1,4 +1,4 @@
-
+import datetime
 import telebot
 import psycopg2
 from telebot import types
@@ -52,7 +52,6 @@ def save_name(message, user_id):
         bot.send_message(message.chat.id,
                          "Произошла ошибкa: У тебя уже есть учетная запись!")
         print(e)
-        save_name(message, user_id)
 
 
 
@@ -93,6 +92,23 @@ def save_phone(message, user_id):
         print(e)
 
 
+@bot.message_handler(func=lambda message: message.text == 'Барберы')
+def send_barbers_info(message):
+    try:
+        # Выполняем SQL-запрос для извлечения информации о барберах из таблицы "Barbers"
+        cursor.execute("SELECT name, phone_number, experience_year, age_year FROM Barbers")
+        barbers_info = cursor.fetchall()
+
+        if barbers_info:
+            response = "Список барберов:\n"
+            for barber in barbers_info:
+                name, phone_number, experience, age = barber
+                response += f"Имя: {name}\nНомер телефона: {phone_number}\nВозраст: {age}\nСтаж работы: {experience} лет\n\n"
+            bot.send_message(message.chat.id, response)
+
+    except Exception as e:
+        bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
+        print(e)
 
 
 # Обработчик для кнопки "Услуги"
@@ -162,7 +178,7 @@ def back_to_main_menu(message):
 
 # Обработчик для кнопки "Барберы"
 @bot.message_handler(func=lambda message: message.text == 'Выбрать')
-def send_barbers(message):
+def select_barbers(message):
     try:
         # Выполнение SQL-запроса для извлечения имен барберов из таблицы "Barbers"
         cursor.execute("SELECT name FROM Barbers")
@@ -186,7 +202,9 @@ def send_barbers(message):
         print(e)
 
 
-# Обработчик для выбора времени
+'''тут ведется разработка функции для выбора даты...'''
+
+
 def select_time(message):
     try:
         selected_barber = message.text
