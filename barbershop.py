@@ -195,7 +195,7 @@ def select_barbers(message):
         # Отправка сообщения с клавиатурой пользователю
         bot.send_message(message.chat.id, "Выбери барбера:", reply_markup=keyboard)
         # Регистрация следующего шага для обработки выбора времени с передачей переменной barbers
-        bot.register_next_step_handler(message, select_time)
+        bot.register_next_step_handler(message, request_date)
 
     except Exception as e:
         bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
@@ -203,11 +203,44 @@ def select_barbers(message):
 
 
 '''тут ведется разработка функции для выбора даты...'''
+def request_date(message):
+    bot.send_message(message.chat.id, "Введите дату в формате DD.MM.YYYY:")
+    bot.register_next_step_handler(message, save_date)
+
+def save_date(message):
+    try:
+        selected_date = datetime.datetime.strptime(message.text, "%d.%m.%Y")
+
+        # Проверка, что дата не раньше сегодняшней
+        today = datetime.datetime.today()
+        if selected_date < today:
+            bot.send_message(message.chat.id, "Выбранная дата не может быть раньше сегодняшней.")
+            request_date(message) # вызываю снова предыдущую нашу функцию, так как не могу понять почему эта не вызывается (у меня бот после проверки этого условия просто сдыхает, и не реагирует на след. смс)
+            return
+
+        # Проверка, что дата не позже, чем через 3 месяца
+        three_months_later = today + datetime.timedelta(days=90)
+        if selected_date > three_months_later:
+            bot.send_message(message.chat.id, "Запись доступна только на ближайшие три месяца!")
+            request_date(message)
+            return
+
+        # Добавление даты в базу данных или выполнение других действий
+        # В этом месте вы можете добавить код для сохранения даты в базу данных
+        user_id = message.from_user.id
+        cursor.execute("UPDATE appointments SET appointment_date = %s WHERE user_id = %s", (selected_date, user_id))
+        conn.commit()
+        bot.send_message(message.chat.id, f"Вы выбрали дату: {selected_date.strftime('%d.%m.%Y')}")
+        select_time(message)
+         #добавить коммит в гите, сделать так, чтобы время также записывалось в ячейку appointment_date вместе с датой
+    except ValueError:
+        bot.send_message(message.chat.id, "Неверный формат даты. Введите дату в формате DD.MM.YYYY.")
+        request_date(message)
+
 
 
 def select_time(message):
     try:
-        selected_barber = message.text
 
         # Создаем клавиатуру для выбора времени
         keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
@@ -218,11 +251,12 @@ def select_time(message):
         keyboard.add(types.KeyboardButton("15:00"), types.KeyboardButton("16:00"))
 
         # Отправляем сообщение с запросом времени
-        bot.send_message(message.chat.id, f"Выберите время для барбера {selected_barber}:", reply_markup=keyboard)
+        bot.send_message(message.chat.id, f"Выберите время:", reply_markup=keyboard)
 
-    except Exception as e:
+    except:
         bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
-        print(e)
+
+
 
 
 # Запускаем бота
