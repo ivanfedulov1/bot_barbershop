@@ -195,15 +195,34 @@ def select_barbers(message):
         # Отправка сообщения с клавиатурой пользователю
         bot.send_message(message.chat.id, "Выбери барбера:", reply_markup=keyboard)
         # Регистрация следующего шага для обработки выбора времени с передачей переменной barbers
-        bot.register_next_step_handler(message, request_date)
 
     except Exception as e:
         bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
         print(e)
 
+@bot.message_handler(func=lambda message: message.text in ["Иван Иванов", "Петр Петров", "Александр Сидоров", "Дмитрий Попов","Андрей Васильев","Алексей Алексеев"]) # Замените имена на реальные имена барберов
+def handle_selected_barber(message):
+    try:
+        selected_barber = message.text
+        user_id = message.from_user.id
+
+        # Обновляем запись в базе данных с выбранным именем барбера
+        cursor.execute("UPDATE appointments SET barber_name = %s WHERE user_id = %s", (selected_barber, user_id))
+        conn.commit()
+
+        # Отправляем подтверждение выбора барбера пользователю
+
+        request_date(message)
+        # Здесь вы можете перейти к следующему шагу, например, запросить у пользователя выбор даты
+        # bot.send_message(message.chat.id, "Теперь выберите дату")
+
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Произошла ошибка: {e}. Попробуйте позже.")
+
 
 '''тут ведется разработка функции для выбора даты...'''
 def request_date(message):
+
     bot.send_message(message.chat.id, "Введите дату в формате DD.MM.YYYY:")
     bot.register_next_step_handler(message, save_date)
 
@@ -253,8 +272,37 @@ def select_time(message):
         # Отправляем сообщение с запросом времени
         bot.send_message(message.chat.id, f"Выберите время:", reply_markup=keyboard)
 
+
     except:
         bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
+
+
+@bot.message_handler(func=lambda message: message.text in ["10:00", "11:00", "12:00", "14:00", "15:00", "16:00"])
+def handle_selected_time(message):
+    try:
+        selected_time = message.text
+        user_id = message.from_user.id
+
+        # Обновляем запись в базе данных с выбранным временем
+        cursor.execute("UPDATE appointments SET appointment_time = %s WHERE user_id = %s", (selected_time, user_id))
+        conn.commit()
+
+        # Отправляем подтверждение выбора времени пользователю
+
+        keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+
+        # Добавляем кнопки в меню
+        services_button = types.KeyboardButton("Услуги")
+        barbers_button = types.KeyboardButton("Барберы")
+        my_orders_button = types.KeyboardButton("Мои заказы")
+        # Добавляем кнопки к меню
+        keyboard.add(services_button, barbers_button, my_orders_button)
+        bot.send_message(message.chat.id, f"Вы выбрали время: {selected_time}", reply_markup=keyboard)
+
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Произошла ошибка: {e}. Попробуйте позже.")
+
+
 
 
 
