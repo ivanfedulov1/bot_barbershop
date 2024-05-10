@@ -129,7 +129,6 @@ def send_services(message):
 
         # Отправка сообщения с клавиатурой пользователю
         bot.send_message(message.chat.id, "Выберите услугу:", reply_markup=keyboard)
-        bot.register_next_step_handler(message, send_service_info)
 
     except Exception as e:
         bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
@@ -137,12 +136,15 @@ def send_services(message):
 
 
 # Обработчик для кнопок с названием услуги
-
+@bot.message_handler(func=lambda message: message.text in ["Бритье", "Окрашивание", "Укладка", "Стрижка бороды","Стрижка"])
 def send_service_info(message):
     try:
         selected_service = message.text
+        user_id = message.from_user.id
 
         # Выполнение SQL-запроса для получения описания и цены выбранной услуги
+        cursor.execute("UPDATE appointments SET service_name = %s WHERE user_id = %s", (selected_service, user_id))
+        conn.commit()
         cursor.execute("SELECT description, price FROM Services WHERE name = %s", (selected_service,))
         service_info = cursor.fetchone()  # Получаем описание и цену услуги
 
@@ -159,7 +161,8 @@ def send_service_info(message):
             bot.send_message(message.chat.id, "Информация о выбранной услуге недоступна.")
 
     except Exception as e:
-        bot.send_message(message.chat.id, "Произошла ошибка. Попробуйте позже.")
+        bot.send_message(message.chat.id, "Выбери услугу, нажав на кнопку.")
+        send_services(message)
         print(e)
 
 
@@ -292,15 +295,67 @@ def handle_selected_time(message):
         keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
 
         # Добавляем кнопки в меню
-        services_button = types.KeyboardButton("Услуги")
-        barbers_button = types.KeyboardButton("Барберы")
-        my_orders_button = types.KeyboardButton("Мои заказы")
+        my_order = types.KeyboardButton("Моя запись")
+        change_order = types.KeyboardButton("Перезаписаться")
         # Добавляем кнопки к меню
-        keyboard.add(services_button, barbers_button, my_orders_button)
-        bot.send_message(message.chat.id, f"Вы выбрали время: {selected_time}", reply_markup=keyboard)
+        keyboard.add(my_order, change_order)
+        bot.send_message(message.chat.id, f"Вы выбрали время: {selected_time}. Ваша запись успешно создана! Не опаздывайте ;)", reply_markup=keyboard)
 
     except Exception as e:
         bot.send_message(message.chat.id, f"Произошла ошибка: {e}. Попробуйте позже.")
+
+
+
+@bot.message_handler(func=lambda message: message.text == "Перезаписаться")
+def confirm_overwrite(message):
+    try:
+        # Создаем клавиатуру с кнопками "Да" и "Нет"
+        keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+        yes_button = types.KeyboardButton("Да")
+        no_button = types.KeyboardButton("Нет")
+        keyboard.add(yes_button, no_button)
+
+        # Отправляем сообщение с вопросом о подтверждении
+        bot.send_message(message.chat.id, "Точно ли вы хотите обновить запись? Обратите внимание, прошлая запись удалится", reply_markup=keyboard)
+
+        # Регистрируем следующий шаг для обработки ответа пользователя
+        bot.register_next_step_handler(message, process_overwrite_confirmation)
+
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Произошла ошибка: {e}. Попробуйте позже.")
+
+def process_overwrite_confirmation(message):
+    try:
+        # Если пользователь ответил "Да", то продолжаем обновление записи
+        if message.text.lower() == "да":
+            user_id = message.from_user.id
+            cursor.execute("UPDATE appointments SET barber_name = NULL, service_name = NULL, appointment_date = NULL, appointment_time = NULL WHERE user_id = %s",(user_id,))
+            conn.commit()
+            bot.send_message(message.chat.id, "Прошлая запись успешно удалена!")
+            send_services(message)
+
+        # Если пользователь ответил "Нет", ничего не делаем
+        elif message.text.lower() == "нет":
+            keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+
+            # Добавляем кнопки в меню
+            my_order = types.KeyboardButton("Моя запись")
+            change_order = types.KeyboardButton("Перезаписаться")
+            # Добавляем кнопки к меню
+            keyboard.add(my_order, change_order)
+            bot.send_message(message.chat.id,f"Не опаздывайте на свою запись, мы вас ждем ;)", reply_markup=keyboard)
+
+
+        # Если пользователь ввел что-то другое, отправляем сообщение о непонимании
+        else:
+            bot.send_message(message.chat.id, "Я не могу понять ваш ответ. Пожалуйста, введите 'Да' или 'Нет'.")
+
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Произошла ошибка: {e}. Попробуйте позже.")
+
+
+
+
 
 
 
