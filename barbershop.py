@@ -3,7 +3,7 @@ import telebot
 import psycopg2
 from telebot import types
 
-# Устанавливаем соединение с базой данных PostgreSQL
+
 conn = psycopg2.connect(
     dbname="barbershop",
     user="postgres",
@@ -12,13 +12,13 @@ conn = psycopg2.connect(
     port="5432"
 )
 
-# Создаем курсор для выполнения SQL-запросов
+# создаем курсор для выполнения SQL-запросов
 cursor = conn.cursor()
 
-# Указываем токен вашего бота
+# указываем токен вашего бота
 TOKEN = '6663688129:AAHbceSjOa5oDyoKb5rKtWY8wZn17wn6jdE'
 
-# Создаем объект бота
+# создаем объект бота
 bot = telebot.TeleBot(TOKEN)
 
 
@@ -32,11 +32,19 @@ def start_message(message):
 
 # Функция для сохранения имени пользователя
 def save_name(message, user_id):
+
+    if message.text is None:
+        bot.send_message(message.chat.id, "Пожалуйста, введите имя в текстовом формате.")
+        bot.register_next_step_handler(message, save_name, user_id)
+        return
+
+
     name = message.text.strip()
+
 
     # Проверка валидности имени пользователя
     if not name.isalpha():
-        bot.send_message(message.chat.id, "Имя не должно содержать цифр. Попробуйте еще раз.")
+        bot.send_message(message.chat.id, "Имя не должно содержать цифр или пробелов. Попробуйте еще раз.")
         bot.register_next_step_handler(message, save_name, user_id)
         return
 
@@ -57,16 +65,26 @@ def save_name(message, user_id):
 
 # Функция для сохранения номера телефона пользователя
 def save_phone(message, user_id):
+
+    if message.text is None:
+        bot.send_message(message.chat.id, "Пожалуйста, введите номер в текстовом формате.")
+        bot.register_next_step_handler(message, save_name, user_id)
+        return
+
     phone_number = message.text.strip()
 
     # Проверяем, состоит ли введенный номер только из цифр и символа "+"
-    if not phone_number.replace('+', '').isdigit():
-        bot.send_message(message.chat.id, "Дружок, номер телефона может содержать только цифры и знак +. Пожалуйста, введи корректный номер!")
+    if  not phone_number.replace('+', '').isdigit():
+        bot.send_message(message.chat.id, "Номер телефона может содержать только цифры и знак +. Пожалуйста, введи корректный номер!")
         bot.register_next_step_handler(message, save_phone, user_id)
         return
 
     if len(phone_number) > 12:
         bot.send_message(message.chat.id, "Слишком длинный номер телефона. Пожалуйста, введите корректный номер.")
+        bot.register_next_step_handler(message, save_phone, user_id)
+        return
+    if len(phone_number) < 5:
+        bot.send_message(message.chat.id, "Слишком короткий номер телефона. Пожалуйста, введите корректный номер.")
         bot.register_next_step_handler(message, save_phone, user_id)
         return
 
@@ -80,7 +98,7 @@ def save_phone(message, user_id):
     # Добавляем кнопки в меню
         services_button = types.KeyboardButton("Услуги")
         barbers_button = types.KeyboardButton("Барберы")
-        my_orders_button = types.KeyboardButton("Мои заказы")
+        my_orders_button = types.KeyboardButton("Моя запись")
     # Добавляем кнопки к меню
         keyboard.add(services_button, barbers_button, my_orders_button)
     # Отправляем сообщение с кнопочным меню
@@ -172,7 +190,7 @@ def back_to_main_menu(message):
     try:
         # Создаем клавиатуру для основного меню
         keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-        keyboard.add(types.KeyboardButton("Услуги"), types.KeyboardButton("Барберы"), types.KeyboardButton("Мои заказы"))
+        keyboard.add(types.KeyboardButton("Услуги"), types.KeyboardButton("Барберы"), types.KeyboardButton("Моя запись"))
         # Отправляем сообщение с основным меню пользователю
         bot.send_message(message.chat.id, "Выберите действие:", reply_markup=keyboard)
     except Exception as e:
@@ -209,21 +227,16 @@ def handle_selected_barber(message):
         selected_barber = message.text
         user_id = message.from_user.id
 
-        # Обновляем запись в базе данных с выбранным именем барбера
         cursor.execute("UPDATE appointments SET barber_name = %s WHERE user_id = %s", (selected_barber, user_id))
         conn.commit()
 
-        # Отправляем подтверждение выбора барбера пользователю
-
         request_date(message)
-        # Здесь вы можете перейти к следующему шагу, например, запросить у пользователя выбор даты
-        # bot.send_message(message.chat.id, "Теперь выберите дату")
+
 
     except Exception as e:
         bot.send_message(message.chat.id, f"Произошла ошибка: {e}. Попробуйте позже.")
 
 
-'''тут ведется разработка функции для выбора даты...'''
 def request_date(message):
 
     bot.send_message(message.chat.id, "Введите дату в формате DD.MM.YYYY:")
@@ -231,13 +244,19 @@ def request_date(message):
 
 def save_date(message):
     try:
+        # Проверка, что сообщение содержит текст
+        if message.text is None:
+            bot.send_message(message.chat.id, "Пожалуйста, введите дату в текстовом формате.")
+            request_date(message)
+            return
+
         selected_date = datetime.datetime.strptime(message.text, "%d.%m.%Y")
 
         # Проверка, что дата не раньше сегодняшней
         today = datetime.datetime.today()
         if selected_date < today:
             bot.send_message(message.chat.id, "Выбранная дата не может быть раньше сегодняшней.")
-            request_date(message) # вызываю снова предыдущую нашу функцию, так как не могу понять почему эта не вызывается (у меня бот после проверки этого условия просто сдыхает, и не реагирует на след. смс)
+            request_date(message)
             return
 
         # Проверка, что дата не позже, чем через 3 месяца
@@ -247,14 +266,13 @@ def save_date(message):
             request_date(message)
             return
 
-        # Добавление даты в базу данных или выполнение других действий
-        # В этом месте вы можете добавить код для сохранения даты в базу данных
+        # Добавление даты в базу данных
         user_id = message.from_user.id
         cursor.execute("UPDATE appointments SET appointment_date = %s WHERE user_id = %s", (selected_date, user_id))
         conn.commit()
         bot.send_message(message.chat.id, f"Вы выбрали дату: {selected_date.strftime('%d.%m.%Y')}")
         select_time(message)
-         #добавить коммит в гите, сделать так, чтобы время также записывалось в ячейку appointment_date вместе с датой
+
     except ValueError:
         bot.send_message(message.chat.id, "Неверный формат даты. Введите дату в формате DD.MM.YYYY.")
         request_date(message)
@@ -322,7 +340,8 @@ def confirm_overwrite(message):
         bot.register_next_step_handler(message, process_overwrite_confirmation)
 
     except Exception as e:
-        bot.send_message(message.chat.id, f"Произошла ошибка: {e}. Попробуйте позже.")
+        bot.send_message(message.chat.id, f"Произошла ошибка.")
+
 
 def process_overwrite_confirmation(message):
     try:
@@ -349,13 +368,38 @@ def process_overwrite_confirmation(message):
         # Если пользователь ввел что-то другое, отправляем сообщение о непонимании
         else:
             bot.send_message(message.chat.id, "Я не могу понять ваш ответ. Пожалуйста, введите 'Да' или 'Нет'.")
+            confirm_overwrite(message)
 
     except Exception as e:
-        bot.send_message(message.chat.id, f"Произошла ошибка: {e}. Попробуйте позже.")
+        bot.send_message(message.chat.id, f"Я не могу понять ваш ответ. Пожалуйста, введите 'Да' или 'Нет'.")
+        confirm_overwrite(message)
 
 
 
+@bot.message_handler(func=lambda message: message.text == "Моя запись")
+def show_appointment(message):
+    try:
+        user_id = message.from_user.id
 
+        # Извлекаем данные о записи пользователя из базы данных
+        cursor.execute("SELECT service_name, appointment_date, appointment_time, barber_name FROM appointments WHERE user_id = %s", (user_id,))
+        appointment = cursor.fetchone()
+
+        if appointment:
+            service_name, appointment_date, appointment_time, barber_name = appointment
+
+            # Форматируем и отправляем информацию о записи пользователю
+            appointment_info = (f"Ваша запись:\n"
+                                f"Услуга: {service_name}\n"
+                                f"Дата: {appointment_date}\n"
+                                f"Время: {appointment_time}\n"
+                                f"Барбер: {barber_name}")
+            bot.send_message(message.chat.id, appointment_info)
+        else:
+            bot.send_message(message.chat.id, "У вас нет записи.")
+
+    except Exception as e:
+        bot.send_message(message.chat.id, f"У вас нет активной записи.")
 
 
 
